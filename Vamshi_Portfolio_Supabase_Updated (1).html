@@ -1,0 +1,1307 @@
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0b0b0d">
+  <title>Vamshi — Video Editor & Visual Storyteller</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root {
+      --bg: #0b0b0d;
+      --panel: #141417;
+      --text: #f5f4f0;
+      --muted: #a3a3ad;
+      --line: #2b2b31;
+      --accent: #ff602e;
+      --max: 1180px;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font: 16px/1.6 Inter, system-ui, Arial, sans-serif;
+    }
+
+    a { color: inherit; text-decoration: none; }
+    button, input, textarea, select { font: inherit; }
+    button { cursor: pointer; }
+
+    .wrap {
+      width: min(var(--max), calc(100% - 40px));
+      margin: auto;
+    }
+
+    .nav {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: #0b0b0df2;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .navinner {
+      min-height: 76px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+    }
+
+    .brand {
+      font-size: 1.2rem;
+      font-weight: 900;
+      letter-spacing: -1px;
+    }
+
+    .brand span { color: var(--accent); }
+
+    .navlinks, .navright, .actions, .social {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .navlinks { gap: 24px; color: #c4c4cb; font-size: .9rem; }
+
+    .navlinks a:hover, .social a:hover { color: var(--accent); }
+
+    .btn {
+      display: inline-flex;
+      justify-content: center;
+      align-items: center;
+      padding: 10px 16px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: var(--text);
+      background: transparent;
+      font-size: .88rem;
+      font-weight: 650;
+      cursor: pointer;
+    }
+
+    .btn:hover { border-color: var(--accent); }
+    .btn.primary { background: var(--accent); color: #160b07; border-color: var(--accent); }
+
+    .eyebrow {
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: .15em;
+      font-size: .72rem;
+      font-weight: 800;
+    }
+
+    .hero {
+      padding: 85px 0 75px;
+      display: grid;
+      grid-template-columns: 1.1fr .9fr;
+      gap: 45px;
+      align-items: center;
+      min-height: 600px;
+    }
+
+    .hero h1 {
+      font-size: clamp(3.4rem, 7.5vw, 7rem);
+      letter-spacing: -.08em;
+      line-height: .98;
+      margin: 20px 0;
+    }
+
+    .hero h1 em { color: var(--accent); font-style: normal; }
+
+    .lead { color: #b4b4bd; max-width: 550px; font-size: 1.08rem; }
+
+    .actions { margin: 28px 0; }
+
+    .heroVisual {
+      min-height: 430px;
+      position: relative;
+      overflow: hidden;
+      border: 1px solid #333238;
+      border-radius: 8px;
+      background:
+        radial-gradient(ellipse at 70% 25%, #ff602e66, transparent 35%),
+        linear-gradient(140deg, #34353a, #101013 60%, #3c2019);
+    }
+
+    .filmshape {
+      position: absolute;
+      inset: 12% 10% 20%;
+      transform: rotate(3deg);
+      border: 1px solid #ffffff33;
+      background: linear-gradient(140deg, #696b70, #1a1b20 50%, #17100e);
+      box-shadow: 0 30px 80px #0009;
+    }
+
+    .play {
+      position: absolute;
+      top: 42%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 65px;
+      height: 65px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      color: #160b07;
+      background: var(--accent);
+      font-size: 1.3rem;
+    }
+
+    .visualcaption {
+      position: absolute;
+      bottom: 22px;
+      left: 22px;
+      right: 22px;
+      display: flex;
+      justify-content: space-between;
+      align-items: end;
+      gap: 12px;
+    }
+
+    .visualcaption small { display: block; color: #aaa; }
+
+    .section { padding: 70px 0; }
+
+    .sectionhead {
+      display: flex;
+      justify-content: space-between;
+      align-items: end;
+      gap: 24px;
+      margin-bottom: 28px;
+    }
+
+    h2 {
+      font-size: clamp(2rem, 4vw, 3.4rem);
+      letter-spacing: -.06em;
+      line-height: 1.1;
+      margin: 10px 0;
+    }
+
+    .sectionhead p { color: var(--muted); max-width: 390px; }
+
+    .filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 22px; }
+
+    .filter {
+      padding: 8px 13px;
+      color: #b9b9c2;
+      background: transparent;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+    }
+
+    .filter.active, .filter:hover { background: var(--text); color: var(--bg); }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .project { border: 1px solid var(--line); background: var(--panel); overflow: hidden; }
+
+    .thumb {
+      height: 220px;
+      position: relative;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      background: linear-gradient(135deg, #282a30, #101013 60%, #50281e);
+    }
+
+    .thumb img, .thumb video { width: 100%; height: 100%; object-fit: cover; }
+
+    .playmini {
+      position: absolute;
+      right: 12px;
+      bottom: 12px;
+      border: 0;
+      background: var(--accent);
+      color: #111;
+      border-radius: 50%;
+      width: 42px;
+      height: 42px;
+    }
+
+    .projectbody { padding: 17px; }
+    .projectbody h3 { margin: 0 0 5px; }
+    .projectbody p { color: var(--muted); font-size: .85rem; margin: 0; }
+
+    .projectmeta {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 12px;
+      color: #85858e;
+      font-size: .75rem;
+    }
+
+    .empty {
+      grid-column: 1 / -1;
+      text-align: center;
+      padding: 40px 20px;
+      border: 1px dashed var(--line);
+      color: var(--muted);
+    }
+
+    .reel {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      min-height: 260px;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+    }
+
+    .reel video, .reel iframe { width: 100%; max-height: 620px; border: 0; }
+    .reelplaceholder { text-align: center; padding: 45px 20px; }
+    .reelplaceholder p { color: var(--muted); }
+
+    .bigplay {
+      width: 65px;
+      height: 65px;
+      margin: 0 auto 15px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: #111;
+      display: grid;
+      place-items: center;
+    }
+
+    .aboutgrid {
+      display: grid;
+      grid-template-columns: .75fr 1.25fr;
+      gap: 45px;
+      align-items: center;
+    }
+
+    .profilebox {
+      max-width: 340px;
+      aspect-ratio: 4 / 5;
+      border: 1px solid var(--line);
+      background: linear-gradient(145deg, #242429, #101012);
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      color: #777;
+      text-align: center;
+    }
+
+    .profilebox img { width: 100%; height: 100%; object-fit: cover; }
+    .profileinitial { font-size: 5rem; font-weight: 900; color: #777; }
+
+    .aboutcopy h2 { font-size: clamp(2.3rem, 4vw, 4rem); }
+    .aboutcopy p { color: var(--muted); }
+
+    .skills { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 20px; }
+    .skill { border: 1px solid var(--line); padding: 7px 11px; font-size: .8rem; }
+
+    .contact {
+      display: grid;
+      grid-template-columns: 1fr .8fr;
+      gap: 40px;
+      padding: clamp(24px, 5vw, 55px);
+      border: 1px solid var(--line);
+      background: var(--panel);
+    }
+
+    .contact h2 { font-size: clamp(2.5rem, 5vw, 4.7rem); line-height: 1; }
+
+    .contact p { color: var(--muted); }
+    .social { margin-top: 20px; }
+    .social a { border: 1px solid var(--line); border-radius: 999px; padding: 8px 12px; font-size: .82rem; }
+
+    .form { display: grid; gap: 12px; }
+
+    .form input, .form textarea, .form select,
+    .field input, .field textarea, .field select {
+      width: 100%;
+      padding: 12px;
+      background: #09090b;
+      color: white;
+      border: 1px solid #38383f;
+      border-radius: 4px;
+    }
+
+    .form textarea, .field textarea { min-height: 90px; resize: vertical; }
+
+    .note { color: #85858e; font-size: .76rem; }
+
+    .footer { border-top: 1px solid var(--line); padding: 25px 0; color: #85858e; font-size: .82rem; }
+    .footerinner { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+
+    /* Manage dashboard */
+    .admin { display: none; padding: 65px 0; }
+    .adminpanel { background: var(--panel); border: 1px solid var(--line); padding: 24px; }
+    .adminbar { display: flex; justify-content: space-between; align-items: center; gap: 15px; margin-bottom: 20px; }
+    .adminlayout { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+    .field { display: grid; gap: 6px; margin-bottom: 13px; }
+    .field label { font-size: .83rem; color: #c8c8cf; }
+    .hidden { display: none !important; }
+
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 99;
+      padding: 12px 18px;
+      border-radius: 999px;
+      background: #f4f4ef;
+      color: #111;
+      box-shadow: 0 10px 40px #0008;
+      max-width: 90%;
+    }
+
+    @media (max-width: 800px) {
+      .hero, .aboutgrid, .contact, .adminlayout { grid-template-columns: 1fr; }
+      .hero { padding-top: 55px; gap: 30px; }
+      .heroVisual { min-height: 340px; }
+      .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .navlinks { display: none; }
+      .section { padding: 50px 0; }
+    }
+
+    @media (max-width: 520px) {
+      .wrap { width: calc(100% - 28px); }
+      .grid { grid-template-columns: 1fr; }
+      .sectionhead { align-items: start; flex-direction: column; }
+      .hero h1 { font-size: 3.5rem; }
+      .contact { padding: 22px; }
+    }
+  </style>
+</head>
+
+<body>
+  <header class="nav">
+    <div class="wrap navinner">
+      <a href="#home" class="brand" id="brand">VAMSHI<span>®</span></a>
+
+      <nav class="navlinks">
+        <a href="#work">Work</a>
+        <a href="#about">About</a>
+        <a href="#contact">Contact</a>
+      </nav>
+
+      <div class="navright">
+        <a class="btn" href="#work">Explore work ↗</a>
+        <button class="btn" id="adminToggle" type="button">Manage</button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="wrap hero" id="home">
+      <div>
+        <div class="eyebrow">Independent video editor · Available for projects</div>
+        <h1>I turn footage<br>into <em>feeling.</em></h1>
+        <p class="lead" id="heroBio">
+          I craft cinematic edits, visual stories, and scroll-stopping films
+          for people with something worth saying.
+        </p>
+        <div class="actions">
+          <a class="btn primary" href="#work">Explore my work ↘</a>
+          <a class="btn" href="#contact">Let's work together ↗</a>
+        </div>
+        <div class="note">EDITING · STORYTELLING · COLOR · SOUND</div>
+      </div>
+
+      <div class="heroVisual">
+        <div class="filmshape"></div>
+        <div class="play">▶</div>
+        <div class="visualcaption">
+          <div>
+            <strong id="heroReelTitle">The Showreel — 2026</strong>
+            <small>Selected frames. Unforgettable stories.</small>
+          </div>
+          <span class="eyebrow">01 / SHOWREEL</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="showreel">
+      <div class="wrap">
+        <div class="sectionhead">
+          <div>
+            <div class="eyebrow">A little bit of everything</div>
+            <h2>Showreel<span style="color:var(--accent)">.</span></h2>
+          </div>
+          <p>A short introduction to my visual language, rhythm, and approach to storytelling.</p>
+        </div>
+
+        <div class="reel" id="reelBox">
+          <div class="reelplaceholder">
+            <div class="bigplay">▶</div>
+            <strong>Your featured showreel goes here.</strong>
+            <p>Add a video using the Manage dashboard.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="work">
+      <div class="wrap">
+        <div class="sectionhead">
+          <div>
+            <div class="eyebrow">A selection of recent work</div>
+            <h2>Selected projects<span style="color:var(--accent)">.</span></h2>
+          </div>
+          <p>Every cut has a purpose. Explore my edits, stories, and visual experiments.</p>
+        </div>
+
+        <div class="filters">
+          <button class="filter active" data-filter="All">All work</button>
+          <button class="filter" data-filter="Reels">Reels</button>
+          <button class="filter" data-filter="YouTube">YouTube</button>
+          <button class="filter" data-filter="Cinematic">Cinematic</button>
+          <button class="filter" data-filter="Commercial">Commercial</button>
+        </div>
+
+        <div class="grid" id="projects"></div>
+      </div>
+    </section>
+
+    <section class="section" id="about">
+      <div class="wrap aboutgrid">
+        <div class="profilebox" id="profilebox">
+          <div>
+            <div class="profileinitial">V</div>
+            <div>VAMSHI'S PROFILE PHOTO</div>
+          </div>
+        </div>
+
+        <div class="aboutcopy">
+          <div class="eyebrow">Behind the timeline</div>
+          <h2 id="aboutHeading">Hey, I'm <span style="color:var(--accent)">Vamshi.</span></h2>
+          <p id="aboutBio">
+            I'm a video editor and visual storyteller who believes great editing
+            is felt before it's noticed. I work with rhythm, sound, color, and pacing.
+          </p>
+          <p id="aboutExtra">
+            Whether it's a punchy social edit or a cinematic brand story,
+            my goal is always the same: make people feel something.
+          </p>
+          <div class="skills">
+            <span class="skill">Video Editing</span>
+            <span class="skill">Color Grading</span>
+            <span class="skill">Sound Design</span>
+            <span class="skill">Storytelling</span>
+          </div>
+          <div class="social" id="profileSocial"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="contact">
+      <div class="wrap">
+        <div class="contact">
+          <div>
+            <div class="eyebrow">Have a project in mind?</div>
+            <h2>Let's make<br>something <span style="color:var(--accent)">matter.</span></h2>
+            <p>Tell me what you're working on. I'd love to hear about it.</p>
+            <div class="social" id="contactSocial"></div>
+            <p id="emailText">Email: Add your email in Manage</p>
+          </div>
+
+          <form class="form" id="contactForm">
+            <input name="name" placeholder="Your name" required>
+            <input name="email" type="email" placeholder="Your email address" required>
+            <select name="type">
+              <option value="">What do you need?</option>
+              <option>Social media / Reels</option>
+              <option>YouTube video</option>
+              <option>Commercial / Brand film</option>
+              <option>Cinematic edit</option>
+              <option>Other project</option>
+            </select>
+            <textarea name="message" placeholder="Tell me about your project..." required></textarea>
+            <button class="btn primary" type="submit">Prepare email ↗</button>
+            <div class="note">This opens your email app. The message is not sent automatically.</div>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <!-- Admin Login -->
+<section id="adminLogin" class="wrap" style="display:none; padding:40px 0;">
+  <div class="adminpanel" style="max-width:480px; margin:auto;">
+    <h2>Admin Login</h2>
+    <form id="adminLoginForm">
+      <div class="field">
+        <label for="adminEmail">Email</label>
+        <input id="adminEmail" type="email" required>
+      </div>
+      <div class="field">
+        <label for="adminPassword">Password</label>
+        <input id="adminPassword" type="password" required>
+      </div>
+      <button class="btn primary" type="submit">Sign in</button>
+      <button class="btn" id="cancelAdminLogin" type="button">Cancel</button>
+    </form>
+  </div>
+</section>
+
+<!-- Manage dashboard -->
+<section class="wrap admin" id="admin" style="display:none;">
+      <div class="adminbar">
+        <div>
+          <div class="eyebrow">Portfolio workspace · local demo</div>
+          <h2>Manage your portfolio</h2>
+        </div>
+        <button class="btn" id="closeAdmin" type="button">Close ×</button>
+      </div>
+
+      <div class="adminpanel">
+        <p class="note">
+          Project uploads and deletions are saved to Supabase. Profile changes currently save in this browser only.
+        </p>
+
+        <div class="adminlayout">
+          <div>
+            <h3>Profile & links</h3>
+            <form id="profileForm">
+              <div class="field">
+                <label for="nameInput">Your name</label>
+                <input id="nameInput" name="name" value="Vamshi" required>
+              </div>
+
+              <div class="field">
+                <label for="titleInput">Professional title</label>
+                <input id="titleInput" name="title" value="Video Editor & Visual Storyteller">
+              </div>
+
+              <div class="field">
+                <label for="bioInput">Short biography</label>
+                <textarea id="bioInput" name="bio">I craft cinematic edits and visual stories.</textarea>
+              </div>
+
+              <div class="field">
+                <label for="photoInput">Profile photo</label>
+                <input id="photoInput" name="photo" type="file" accept="image/*">
+              </div>
+
+              <div class="field">
+                <label for="emailInput">Contact email</label>
+                <input id="emailInput" name="email" type="email" placeholder="you@example.com">
+              </div>
+
+              <div class="field">
+                <label for="instagramInput">Instagram URL</label>
+                <input id="instagramInput" name="instagram" type="url" placeholder="https://instagram.com/vamshi">
+              </div>
+
+              <div class="field">
+                <label for="youtubeInput">YouTube URL</label>
+                <input id="youtubeInput" name="youtube" type="url" placeholder="https://youtube.com/@vamshi">
+              </div>
+
+              <div class="field">
+                <label for="linkedinInput">LinkedIn URL</label>
+                <input id="linkedinInput" name="linkedin" type="url" placeholder="https://linkedin.com/in/vamshi">
+              </div>
+
+              <div class="field">
+                <label for="behanceInput">Behance URL</label>
+                <input id="behanceInput" name="behance" type="url" placeholder="https://behance.net/vamshi">
+              </div>
+
+              <div class="field">
+                <label for="whatsappInput">WhatsApp number with country code</label>
+                <input id="whatsappInput" name="whatsapp" placeholder="91XXXXXXXXXX">
+              </div>
+
+              <button class="btn primary" type="submit">Save profile</button>
+            </form>
+          </div>
+
+          <div>
+            <h3>Add a video project</h3>
+            <form id="projectForm">
+              <div class="field">
+                <label for="projectTitle">Project title</label>
+                <input id="projectTitle" name="title" required placeholder="Cinematic Travel Film">
+              </div>
+
+              <div class="field">
+                <label for="categoryInput">Category</label>
+                <select id="categoryInput" name="category">
+                  <option>Reels</option>
+                  <option>YouTube</option>
+                  <option>Cinematic</option>
+                  <option>Commercial</option>
+                </select>
+              </div>
+
+              <div class="field">
+                <label for="descriptionInput">Description</label>
+                <textarea id="descriptionInput" name="description" placeholder="Describe your project"></textarea>
+              </div>
+
+              <div class="field">
+                <label for="videoFile">Video file (maximum 8 MB)</label>
+                <input id="videoFile" name="video" type="file" accept="video/mp4,video/webm,video/ogg">
+              </div>
+
+              <div class="field">
+                <label for="videoUrl">Or hosted video URL</label>
+                <input id="videoUrl" name="videoUrl" type="url" placeholder="https://example.com/video.mp4">
+              </div>
+
+              <div class="field">
+                <label for="thumbnailFile">Thumbnail image (optional)</label>
+                <input id="thumbnailFile" name="thumb" type="file" accept="image/*">
+              </div>
+
+              <label style="display:flex;gap:8px;align-items:center;margin:10px 0 16px">
+                <input name="featured" type="checkbox"> Feature as showreel
+              </label>
+
+              <button class="btn primary" type="submit">Add project +</button>
+            </form>
+
+            <h3 style="margin-top:28px">Your projects</h3>
+            <div id="adminProjects"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="wrap footerinner">
+      <span id="footerBrand">© 2026 Vamshi. Made with intention.</span>
+      <span id="footerSocial" class="social" style="margin:0"></span>
+      <a href="#home">Back to top ↑</a>
+    </div>
+  </footer>
+
+  <div id="toast" class="toast hidden" role="status"></div>
+
+  <!-- Supabase JavaScript client -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    "use strict";
+
+    // Supabase project configuration
+    // Replace the placeholder with the full sb_publishable_... key from Supabase.
+    // NEVER put an sb_secret_... key in frontend code.
+   
+"use strict";
+
+const SUPABASE_URL =
+  "https://cnqzvhmhqmnochwpxzoe.supabase.co";
+
+const SUPABASE_PUBLISHABLE_KEY =
+  "sb_publishable_ad9Kk-wfMW0szXnT9OXJ_w_iE_ZHPh_";
+
+const supabaseClient = window.supabase.createClient(
+  SUPABASE_URL,
+  SUPABASE_PUBLISHABLE_KEY
+);
+
+const DB = "vamshiEditorPortfolio_v2";
+
+// Keep your remaining existing JavaScript code below this line.
+
+
+    // Corrected default state: the missing quote has been fixed.
+    const defaultState = {
+      profile: {
+        name: "Vamshi",
+        title: "Video Editor & Visual Storyteller",
+        bio: "I craft cinematic edits, visual stories, and scroll-stopping films for people with something worth saying.",
+        email: "",
+        instagram: "",
+        youtube: "",
+        linkedin: "",
+        behance: "",
+        whatsapp: "",
+        photo: ""
+      },
+      projects: [],
+      reelId: null
+    };
+
+    let state = JSON.parse(JSON.stringify(defaultState));
+
+    const $ = (selector) => document.querySelector(selector);
+
+    function escapeHTML(value) {
+      return String(value ?? "").replace(/[&<>"']/g, char => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+      })[char]);
+    }
+
+    function toast(message) {
+      const element = $("#toast");
+      element.textContent = message;
+      element.classList.remove("hidden");
+      clearTimeout(toast.timer);
+      toast.timer = setTimeout(() => element.classList.add("hidden"), 3500);
+    }
+
+    function saveState() {
+      try {
+        localStorage.setItem(DB, JSON.stringify(state));
+        return true;
+      } catch (error) {
+        console.error(error);
+        toast("Storage is full. Use smaller files or hosted video links.");
+        return false;
+      }
+    }
+
+    function loadState() {
+      try {
+        const saved = localStorage.getItem(DB);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          state = {
+            ...defaultState,
+            ...parsed,
+            profile: { ...defaultState.profile, ...(parsed.profile || {}) },
+            projects: Array.isArray(parsed.projects) ? parsed.projects : []
+          };
+        }
+      } catch (error) {
+        console.error("Could not load saved settings:", error);
+      }
+    }
+
+async function loadProjectsFromSupabase() {
+  const { data, error } = await supabaseClient
+    .from("portfolio_projects")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("Could not load projects:", error.message);
+    toast("Could not load projects from the cloud.");
+    return;
+  }
+
+  state.projects = (data || []).map((project) => ({
+    id: String(project.id),
+    title: project.title || "",
+    category: project.category || "Reels",
+    description: project.description || "",
+    video: "",
+    videoUrl: project.video_url || "",
+    thumb: project.thumbnail_url || ""
+  }));
+
+  const featuredProject = (data || []).find(
+    (project) => project.featured
+  );
+
+  state.reelId = featuredProject ? String(featuredProject.id) : "";
+  renderProjects();
+}
+
+
+
+    function initials(name) {
+      return (name || "Vamshi")
+        .trim()
+        .split(/\s+/)
+        .slice(0, 2)
+        .map(word => word[0])
+        .join("")
+        .toUpperCase();
+    }
+
+    function socialLinks() {
+      const p = state.profile;
+      const links = [
+        ["Instagram", p.instagram],
+        ["YouTube", p.youtube],
+        ["LinkedIn", p.linkedin],
+        ["Behance", p.behance],
+        ["WhatsApp", p.whatsapp
+          ? "https://wa.me/" + p.whatsapp.replace(/\D/g, "")
+          : ""]
+      ];
+
+      return links
+        .filter(([name, url]) => url)
+        .map(([name, url]) =>
+          `<a href="${escapeHTML(url)}" target="_blank" rel="noopener noreferrer">${escapeHTML(name)} ↗</a>`
+        ).join("");
+    }
+
+    function renderProfile() {
+      const p = state.profile;
+      const name = p.name || "Vamshi";
+
+      document.title = `${name} — Video Editor & Visual Storyteller`;
+
+      $("#brand").innerHTML =
+        `${escapeHTML(name.replace(/\s/g, "").toUpperCase())}<span>®</span>`;
+
+      $("#heroBio").textContent = p.bio || "I craft cinematic edits and visual stories.";
+
+      $("#aboutHeading").innerHTML =
+        `Hey, I'm <span style="color:var(--accent)">${escapeHTML(name)}.</span>`;
+
+      $("#aboutBio").textContent = p.bio || "";
+      $("#emailText").textContent = "Email: " + (p.email || "Add your email in Manage");
+      $("#footerBrand").textContent =
+        `© ${new Date().getFullYear()} ${name}. Made with intention.`;
+
+      $("#profileSocial").innerHTML = socialLinks();
+      $("#contactSocial").innerHTML = socialLinks();
+      $("#footerSocial").innerHTML = socialLinks();
+
+      $("#profilebox").innerHTML = p.photo
+        ? `<img src="${p.photo}" alt="${escapeHTML(name)} profile photo">`
+        : `<div><div class="profileinitial">${escapeHTML(initials(name))}</div><div>${escapeHTML(name.toUpperCase())}'S PROFILE PHOTO</div></div>`;
+    }
+
+    function renderReel() {
+      const project = state.projects.find(item => item.id === state.reelId);
+
+      if (!project) {
+        $("#reelBox").innerHTML = `
+          <div class="reelplaceholder">
+            <div class="bigplay">▶</div>
+            <strong>Your featured showreel goes here.</strong>
+            <p>Add a project and select "Feature as showreel".</p>
+          </div>`;
+        $("#heroReelTitle").textContent = "The Showreel — " + new Date().getFullYear();
+        return;
+      }
+
+      $("#heroReelTitle").textContent = project.title;
+
+      const src = project.video || project.videoUrl;
+      if (!src) return;
+
+      if (/youtube\.com|youtu\.be|vimeo\.com/.test(src)) {
+        let embed = src;
+
+        if (src.includes("youtu.be/")) {
+          embed = "https://www.youtube.com/embed/" +
+            src.split("youtu.be/")[1].split(/[?&]/)[0];
+        } else if (src.includes("youtube.com/watch")) {
+          const id = new URL(src).searchParams.get("v");
+          if (id) embed = "https://www.youtube.com/embed/" + id;
+        } else if (src.includes("vimeo.com/")) {
+          embed = "https://player.vimeo.com/video/" +
+            src.split("vimeo.com/")[1].split(/[?&]/)[0];
+        }
+
+        $("#reelBox").innerHTML =
+          `<iframe title="${escapeHTML(project.title)}" src="${escapeHTML(embed)}" style="width:100%;aspect-ratio:16/9" allowfullscreen></iframe>`;
+      } else {
+        $("#reelBox").innerHTML =
+          `<video controls playsinline preload="metadata" src="${escapeHTML(src)}" style="width:100%;max-height:620px"></video>`;
+      }
+    }
+
+    function renderProjects() {
+      const activeFilter = $(".filter.active")?.dataset.filter || "All";
+
+      const projects = state.projects.filter(project =>
+        activeFilter === "All" || project.category === activeFilter
+      );
+
+      $("#projects").innerHTML = projects.length
+        ? projects.map(project => `
+          <article class="project">
+            <div class="thumb">
+              ${project.thumb
+                ? `<img src="${project.thumb}" alt="${escapeHTML(project.title)} thumbnail">`
+                : project.video
+                  ? `<video src="${project.video}" muted playsinline preload="metadata"></video>`
+                  : `<div class="eyebrow">${escapeHTML(project.category)}</div>`}
+              <button class="playmini" type="button" data-play="${escapeHTML(project.id)}" aria-label="Play project">▶</button>
+            </div>
+            <div class="projectbody">
+              <h3>${escapeHTML(project.title)}</h3>
+              <p>${escapeHTML(project.description || "A selected video project.")}</p>
+              <div class="projectmeta">
+                <span>${escapeHTML(project.category)}</span>
+                <span>View project ↗</span>
+              </div>
+            </div>
+          </article>`).join("")
+        : `<div class="empty"><strong>No projects yet.</strong><br>Add your first video using the Manage button.</div>`;
+
+      $("#adminProjects").innerHTML = state.projects.length
+        ? state.projects.map(project => `
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid var(--line)">
+            <div>
+              <strong>${escapeHTML(project.title)}</strong>
+              <div class="note">${escapeHTML(project.category)}${project.id === state.reelId ? " · Featured showreel" : ""}</div>
+            </div>
+            <button class="btn" type="button" data-delete="${escapeHTML(project.id)}">Delete</button>
+          </div>`).join("")
+        : `<p class="note">No projects added yet.</p>`;
+
+      renderReel();
+    }
+
+    function readFile(file) {
+      return new Promise((resolve, reject) => {
+        if (!file) return resolve("");
+
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(new Error("Could not read file."));
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function fillProfileForm() {
+      const form = $("#profileForm");
+      const p = state.profile;
+
+      ["name", "title", "bio", "email", "instagram", "youtube", "linkedin", "behance", "whatsapp"]
+        .forEach(key => {
+          if (form.elements[key]) form.elements[key].value = p[key] || "";
+        });
+    }
+
+    async function openAdmin() {
+      const { data, error } = await supabaseClient.auth.getSession();
+      if (error) {
+        console.error("Could not check admin session:", error.message);
+        toast("Could not check admin login.");
+        return;
+      }
+
+      const adminId = "5df0167f-a55c-480b-bc03-8a06308247ca";
+      const session = data.session;
+      if (!session || session.user.id !== adminId) {
+        $("#admin").style.display = "none";
+        $("#adminLogin").style.display = "block";
+        $("#adminLogin").scrollIntoView({ behavior: "smooth", block: "start" });
+        return;
+      }
+
+      $("#adminLogin").style.display = "none";
+      $("#admin").style.display = "block";
+      fillProfileForm();
+      $("#admin").scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
+    function closeAdmin() {
+      $("#admin").style.display = "none";
+      $("#home").scrollIntoView({ behavior: "smooth" });
+    }
+
+    // Manage button: attached after all HTML elements exist.
+    $("#adminToggle").addEventListener("click", openAdmin);
+
+$("#adminLoginForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+
+  const email = $("#adminEmail").value.trim();
+  const password = $("#adminPassword").value;
+
+  const { data, error } = await supabaseClient.auth.signInWithPassword({
+    email: email,
+    password: password
+  });
+
+  $("#adminPassword").value = "";
+
+  if (error) {
+    console.error("Admin login failed:", error.message);
+    toast("Login failed. Check your email and password.");
+    return;
+  }
+
+  // Only allow your authorized admin account.
+  const adminId = "5df0167f-a55c-480b-bc03-8a06308247ca";
+
+  if (data.user.id !== adminId) {
+    await supabaseClient.auth.signOut();
+    toast("This account is not authorized to manage the portfolio.");
+    return;
+  }
+
+  $("#adminLogin").style.display = "none";
+  $("#admin").style.display = "block";
+
+  fillProfileForm();
+
+  $("#admin").scrollIntoView({
+    behavior: "smooth",
+    block: "start"
+  });
+
+  toast("Admin login successful.");
+});
+
+$("#cancelAdminLogin").addEventListener("click", () => {
+  $("#adminLogin").style.display = "none";
+});
+
+    $("#closeAdmin").addEventListener("click", closeAdmin);
+
+    $("#profileForm").addEventListener("submit", async event => {
+      event.preventDefault();
+
+      const form = event.currentTarget;
+      const p = state.profile;
+
+      ["name", "title", "bio", "email", "instagram", "youtube", "linkedin", "behance", "whatsapp"]
+        .forEach(key => p[key] = form.elements[key].value.trim());
+
+      const photo = form.elements.photo.files[0];
+
+      if (photo) {
+        if (!photo.type.startsWith("image/")) {
+          toast("Please select an image file.");
+          return;
+        }
+
+        if (photo.size > 2 * 1024 * 1024) {
+          toast("Profile photo must be smaller than 2 MB.");
+          return;
+        }
+
+        try {
+          p.photo = await readFile(photo);
+        } catch (error) {
+          toast("Could not read the profile photo.");
+          return;
+        }
+      }
+
+      if (saveState()) {
+        renderProfile();
+        toast("Profile saved in this browser. Cloud profile saving is not connected yet.");
+      }
+    });
+
+    $("#projectForm").addEventListener("submit", async event => {
+      event.preventDefault();
+
+      const form = event.currentTarget;
+      const videoFile = form.elements.video.files[0];
+      const thumbFile = form.elements.thumb.files[0];
+      const videoUrlInput = form.elements.videoUrl.value.trim();
+      const featured = form.elements.featured.checked;
+
+      if (!videoFile && !videoUrlInput) {
+        toast("Choose a video file or enter a hosted video URL.");
+        return;
+      }
+      if (videoFile && videoFile.size > 50 * 1024 * 1024) {
+        toast("Video must be smaller than 50 MB. For larger videos, use a hosted video URL.");
+        return;
+      }
+      if (thumbFile && thumbFile.size > 2 * 1024 * 1024) {
+        toast("Thumbnail must be smaller than 2 MB.");
+        return;
+      }
+
+      const { data: sessionData } = await supabaseClient.auth.getSession();
+      const adminId = "5df0167f-a55c-480b-bc03-8a06308247ca";
+      if (!sessionData.session || sessionData.session.user.id !== adminId) {
+        toast("Please sign in with your admin account first.");
+        $("#admin").style.display = "none";
+        $("#adminLogin").style.display = "block";
+        return;
+      }
+
+      const uploadedPaths = [];
+      try {
+        let videoUrl = videoUrlInput;
+        let thumbnailUrl = "";
+        const safeName = file => file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+
+        if (videoFile) {
+          const videoPath = `videos/${crypto.randomUUID()}-${safeName(videoFile)}`;
+          const { error: uploadError } = await supabaseClient.storage
+            .from("portfolio-media")
+            .upload(videoPath, videoFile, { upsert: false, contentType: videoFile.type });
+          if (uploadError) throw uploadError;
+          uploadedPaths.push(videoPath);
+          const { data: publicVideo } = supabaseClient.storage
+            .from("portfolio-media")
+            .getPublicUrl(videoPath);
+          videoUrl = publicVideo.publicUrl;
+        }
+
+        if (thumbFile) {
+          const thumbPath = `thumbnails/${crypto.randomUUID()}-${safeName(thumbFile)}`;
+          const { error: thumbError } = await supabaseClient.storage
+            .from("portfolio-media")
+            .upload(thumbPath, thumbFile, { upsert: false, contentType: thumbFile.type });
+          if (thumbError) throw thumbError;
+          uploadedPaths.push(thumbPath);
+          const { data: publicThumb } = supabaseClient.storage
+            .from("portfolio-media")
+            .getPublicUrl(thumbPath);
+          thumbnailUrl = publicThumb.publicUrl;
+        }
+
+        const projectRow = {
+          title: form.elements.title.value.trim(),
+          category: form.elements.category.value,
+          description: form.elements.description.value.trim(),
+          video_url: videoUrl,
+          thumbnail_url: thumbnailUrl,
+          featured
+        };
+
+        const { data: savedProject, error: insertError } = await supabaseClient
+          .from("portfolio_projects")
+          .insert(projectRow)
+          .select("*")
+          .single();
+        if (insertError) throw insertError;
+
+        if (featured) {
+          const { error: featureError } = await supabaseClient
+            .from("portfolio_projects")
+            .update({ featured: false })
+            .neq("id", savedProject.id);
+          if (featureError) console.warn("Could not clear older featured flags:", featureError.message);
+        }
+
+        const project = {
+          id: String(savedProject.id),
+          title: savedProject.title || "",
+          category: savedProject.category || "Reels",
+          description: savedProject.description || "",
+          video: "",
+          videoUrl: savedProject.video_url || "",
+          thumb: savedProject.thumbnail_url || ""
+        };
+        state.projects = [project, ...state.projects.filter(item => item.id !== project.id)];
+        if (featured) state.reelId = project.id;
+        renderProjects();
+        form.reset();
+        toast("Project uploaded and saved to Supabase.");
+      } catch (error) {
+        console.error("Could not save project to Supabase:", error);
+        if (uploadedPaths.length) {
+          const { error: cleanupError } = await supabaseClient.storage
+            .from("portfolio-media")
+            .remove(uploadedPaths);
+          if (cleanupError) console.warn("Uploaded file cleanup failed:", cleanupError.message);
+        }
+        toast(error.message || "Could not upload/save project. Check Supabase policies and table columns.");
+      }
+    });
+
+    document.addEventListener("click", async event => {
+      const filter = event.target.closest("[data-filter]");
+
+      if (filter) {
+        document.querySelectorAll(".filter").forEach(button => {
+          button.classList.toggle("active", button === filter);
+        });
+        renderProjects();
+        return;
+      }
+
+      const deleteButton = event.target.closest("[data-delete]");
+
+      if (deleteButton) {
+        if (confirm("Delete this project from your portfolio?")) {
+          const projectId = deleteButton.dataset.delete;
+          const { data: sessionData } = await supabaseClient.auth.getSession();
+          const adminId = "5df0167f-a55c-480b-bc03-8a06308247ca";
+          if (!sessionData.session || sessionData.session.user.id !== adminId) {
+            toast("Please sign in with your admin account first.");
+            return;
+          }
+
+          const { error } = await supabaseClient
+            .from("portfolio_projects")
+            .delete()
+            .eq("id", projectId);
+          if (error) {
+            console.error("Could not delete project:", error.message);
+            toast("Could not delete project from Supabase.");
+            return;
+          }
+
+          state.projects = state.projects.filter(project => project.id !== projectId);
+          if (state.reelId === projectId) state.reelId = null;
+          renderProjects();
+          toast("Project deleted from Supabase.");
+        }
+        return;
+      }
+
+      const playButton = event.target.closest("[data-play]");
+
+      if (playButton) {
+        const project = state.projects.find(
+          item => item.id === playButton.dataset.play
+        );
+
+        const src = project?.video || project?.videoUrl;
+
+        if (!src) {
+          toast("Add a video file or video URL for this project.");
+          return;
+        }
+
+        if (/youtube\.com|youtu\.be|vimeo\.com/.test(src)) {
+          window.open(src, "_blank", "noopener,noreferrer");
+        } else {
+          const popup = window.open("", "_blank");
+
+          if (popup) {
+            const video = popup.document.createElement("video");
+            video.src = src;
+            video.controls = true;
+            video.autoplay = true;
+            video.style.cssText = "width:100%;max-height:95vh;background:#000";
+            popup.document.body.style.background = "#000";
+            popup.document.body.appendChild(video);
+          } else {
+            toast("Allow pop-ups to play the video in a new tab.");
+          }
+        }
+      }
+    });
+
+    $("#contactForm").addEventListener("submit", event => {
+      event.preventDefault();
+
+      const p = state.profile;
+
+      if (!p.email) {
+        toast("Add your contact email in Manage first.");
+        openAdmin();
+        return;
+      }
+
+      const data = new FormData(event.currentTarget);
+      const subject = encodeURIComponent("Video editing enquiry — " + (data.get("type") || "New project"));
+      const body = encodeURIComponent(
+        `Name: ${data.get("name")}\n` +
+        `Email: ${data.get("email")}\n` +
+        `Project type: ${data.get("type") || "Not specified"}\n\n` +
+        `${data.get("message")}`
+      );
+
+      window.location.href = `mailto:${p.email}?subject=${subject}&body=${body}`;
+    });
+
+    // Initialize the website.
+   loadState();
+renderProfile();
+loadProjectsFromSupabase();
+  </script>
+</body>
+</html>
