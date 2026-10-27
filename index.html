@@ -895,8 +895,7 @@ async function loadProjectsFromSupabase() {
       $("#footerSocial").innerHTML = socialLinks();
 
       $("#profilebox").innerHTML = p.photo
-        ? `<img src="${p.photo}" alt="${escapeHTML(name)} profile photo">`
-        : `<div><div class="profileinitial">${escapeHTML(initials(name))}</div><div>${escapeHTML(name.toUpperCase())}'S PROFILE PHOTO</div></div>`;
+`<img src="${escapeHTML(p.photo)}" alt="${escapeHTML(name)} profile photo" onerror="console.error('Profile photo failed to load:', this.src)">`        : `<div><div class="profileinitial">${escapeHTML(initials(name))}</div><div>${escapeHTML(name.toUpperCase())}'S PROFILE PHOTO</div></div>`;
     }
 
     function renderReel() {
