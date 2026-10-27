@@ -1103,18 +1103,59 @@ $("#cancelAdminLogin").addEventListener("click", () => {
           return;
         }
 
-        try {
-          p.photo = await readFile(photo);
-        } catch (error) {
-          toast("Could not read the profile photo.");
-          return;
-        }
-      }
+try {
+  const safeName = photo.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+  const photoPath = `profile/${Date.now()}-${safeName}`;
 
-      if (saveState()) {
-        renderProfile();
-        toast("Profile saved in this browser. Cloud profile saving is not connected yet.");
-      }
+  const { error: uploadError } = await supabaseClient.storage
+    .from("portfolio-media")
+    .upload(photoPath, photo, {
+      upsert: true,
+      contentType: photo.type
+    });
+
+  if (uploadError) throw uploadError;
+
+  const { data: publicData } = supabaseClient.storage
+    .from("portfolio-media")
+    .getPublicUrl(photoPath);
+
+  p.photo = publicData.publicUrl;
+} catch (error) {
+  console.error("Photo upload failed:", error);
+  toast("Photo upload failed. Check the console.");
+  return;
+}
+
+
+     
+try {
+  const { error } = await supabaseClient
+    .from("portfolio_profile")
+    .update({
+      name: state.profile.name,
+      title: state.profile.title,
+      bio: state.profile.bio,
+      email: state.profile.email,
+      instagram: state.profile.instagram,
+      youtube: state.profile.youtube,
+      linkedin: state.profile.linkedin,
+      behance: state.profile.behance,
+      whatsapp: state.profile.whatsapp,
+      photo_url: state.profile.photo || ""
+    })
+    .eq("id", 1);
+
+  if (error) throw error;
+
+  saveState();
+  renderProfile();
+  toast("Profile saved successfully!");
+} catch (error) {
+  console.error("Profile save failed:", error);
+  toast("Cloud save failed. Check the console.");
+}
+
     });
 
     $("#projectForm").addEventListener("submit", async event => {
