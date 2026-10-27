@@ -560,7 +560,7 @@
 
       <div class="adminpanel">
         <p class="note">
-          Project uploads and deletions are saved to Supabase. Profile changes currently save in this browser only.
+          Your profile, social links, photo, projects and thumbnails are loaded from Supabase.
         </p>
 
         <div class="adminlayout">
@@ -780,66 +780,90 @@ const DB = "vamshiEditorPortfolio_v2";
     }
 
 async function loadProfileFromSupabase() {
-  const { data, error } = await supabaseClient
-    .from("portfolio_profile")
-    .select("*")
-    .eq("id", 1)
-    .single();
+  try {
+    const { data, error } = await supabaseClient
+      .from("portfolio_profile")
+      .select("*")
+      .eq("id", 1)
+      .maybeSingle();
 
-  if (error) {
-    console.error("Could not load profile:", error.message);
-    return;
-  }
+    if (error) throw error;
+    if (!data) {
+      console.warn("No portfolio_profile row with id=1 was found.");
+      renderProfile();
+      return;
+    }
 
-  if (data) {
     state.profile = {
       ...state.profile,
-      name: data.name || state.profile.name,
-      title: data.title || state.profile.title,
-      bio: data.bio || state.profile.bio,
-      email: data.email || state.profile.email,
-      instagram: data.instagram || state.profile.instagram,
-      youtube: data.youtube || state.profile.youtube,
-      linkedin: data.linkedin || state.profile.linkedin,
-      behance: data.behance || state.profile.behance,
-      whatsapp: data.whatsapp || state.profile.whatsapp,
-photo: data.photo_url || state.profile.photo    };
+      name: data.name ?? state.profile.name,
+      title: data.title ?? state.profile.title,
+      bio: data.bio ?? state.profile.bio,
+      email: data.email ?? state.profile.email,
+      instagram: data.instagram ?? state.profile.instagram,
+      youtube: data.youtube ?? state.profile.youtube,
+      linkedin: data.linkedin ?? state.profile.linkedin,
+      behance: data.behance ?? state.profile.behance,
+      whatsapp: data.whatsapp ?? state.profile.whatsapp,
+      photo: data.photo_url || data.photo || state.profile.photo || ""
+    };
 
+    saveState();
+    renderProfile();
+    fillProfileFormIfOpen();
+  } catch (error) {
+    console.error("Could not load profile from Supabase:", error);
     renderProfile();
   }
 }
 
-async function loadProjectsFromSupabase() {
-  const { data, error } = await supabaseClient
-    .from("portfolio_projects")
-    .select("*")
-    .order("created_at", { ascending: false });
-
-  if (error) {
-    console.error("Could not load projects:", error.message);
-    toast("Could not load projects from the cloud.");
-    return;
+function fillProfileFormIfOpen() {
+  const form = $("#profileForm");
+  if (form) {
+    const fields = ["name", "title", "bio", "email", "instagram", "youtube", "linkedin", "behance", "whatsapp"];
+    fields.forEach(key => {
+      if (form.elements[key]) form.elements[key].value = state.profile[key] || "";
+    });
   }
-
-  state.projects = (data || []).map((project) => ({
-    id: String(project.id),
-    title: project.title || "",
-    category: project.category || "Reels",
-    description: project.description || "",
-    video: "",
-    videoUrl: project.video_url || "",
-    thumb: project.thumbnail_url || ""
-  }));
-
-  const featuredProject = (data || []).find(
-    (project) => project.featured
-  );
-
-  state.reelId = featuredProject ? String(featuredProject.id) : "";
-  renderProjects();
 }
 
+async function loadProjectsFromSupabase() {
+  try {
+    const { data, error } = await supabaseClient
+      .from("portfolio_projects")
+      .select("*")
+      .order("created_at", { ascending: false });
 
+    if (error) throw error;
+
+    // Do not erase previously cached projects if the cloud query returns no rows.
+    if (!Array.isArray(data) || data.length === 0) {
+      state.projects = Array.isArray(state.projects) ? state.projects : [];
+      renderProjects();
+      console.warn("Supabase returned no rows from portfolio_projects.");
+      return;
+    }
+
+    state.projects = data.map(project => ({
+      id: String(project.id),
+      title: project.title || project.name || "",
+      category: project.category || "Reels",
+      description: project.description || "",
+      video: "",
+      videoUrl: project.video_url || project.videoUrl || project.video || project.video_link || "",
+      thumb: project.thumbnail_url || project.thumbnail || project.thumb_url || project.thumbnailUrl || ""
+    }));
+
+    const featuredProject = data.find(project => project.featured);
+    state.reelId = featuredProject ? String(featuredProject.id) : "";
+    saveState();
+    renderProjects();
+  } catch (error) {
+    console.error("Could not load projects from Supabase:", error);
+    renderProjects();
+    toast("Cloud projects could not load. Check Console and Supabase table policies.");
+  }
+}
 
     function initials(name) {
       return (name || "Vamshi")
@@ -892,9 +916,9 @@ async function loadProjectsFromSupabase() {
       $("#profileSocial").innerHTML = socialLinks();
       $("#contactSocial").innerHTML = socialLinks();
       $("#footerSocial").innerHTML = socialLinks();
-
-      $("#profilebox").innerHTML = p.photo
-`<img src="${escapeHTML(p.photo)}" alt="${escapeHTML(name)} profile photo" onerror="console.error('Profile photo failed to load:', this.src)">`        : `<div><div class="profileinitial">${escapeHTML(initials(name))}</div><div>${escapeHTML(name.toUpperCase())}'S PROFILE PHOTO</div></div>`;
+$("#profilebox").innerHTML = p.photo
+  ? `<img src="${escapeHTML(p.photo)}" alt="${escapeHTML(name)} profile photo" onerror="console.error('Profile photo failed to load:', this.src)">`
+  : `<div class="profileinitial">${escapeHTML(initials(name))}</div>`;
     }
 
     function renderReel() {
@@ -1085,76 +1109,65 @@ $("#cancelAdminLogin").addEventListener("click", () => {
 
       const form = event.currentTarget;
       const p = state.profile;
-
       ["name", "title", "bio", "email", "instagram", "youtube", "linkedin", "behance", "whatsapp"]
         .forEach(key => p[key] = form.elements[key].value.trim());
 
       const photo = form.elements.photo.files[0];
-
       if (photo) {
         if (!photo.type.startsWith("image/")) {
           toast("Please select an image file.");
           return;
         }
-
         if (photo.size > 2 * 1024 * 1024) {
           toast("Profile photo must be smaller than 2 MB.");
           return;
         }
 
-try {
-  const safeName = photo.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-  const photoPath = `profile/${Date.now()}-${safeName}`;
+        try {
+          const safeName = photo.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+          const photoPath = `profile/${Date.now()}-${safeName}`;
+          const { error: uploadError } = await supabaseClient.storage
+            .from("portfolio-media")
+            .upload(photoPath, photo, { upsert: true, contentType: photo.type });
+          if (uploadError) throw uploadError;
 
-  const { error: uploadError } = await supabaseClient.storage
-    .from("portfolio-media")
-    .upload(photoPath, photo, {
-      upsert: true,
-      contentType: photo.type
-    });
+          const { data: publicData } = supabaseClient.storage
+            .from("portfolio-media")
+            .getPublicUrl(photoPath);
+          p.photo = publicData.publicUrl;
+        } catch (error) {
+          console.error("Photo upload failed:", error);
+          toast("Photo upload failed. Check Supabase Storage policies.");
+          return;
+        }
+      }
 
-  if (uploadError) throw uploadError;
+      try {
+        const profileRow = {
+          id: 1,
+          name: p.name,
+          title: p.title,
+          bio: p.bio,
+          email: p.email,
+          instagram: p.instagram,
+          youtube: p.youtube,
+          linkedin: p.linkedin,
+          behance: p.behance,
+          whatsapp: p.whatsapp,
+          photo_url: p.photo || ""
+        };
+        const { error } = await supabaseClient
+          .from("portfolio_profile")
+          .upsert(profileRow, { onConflict: "id" });
+        if (error) throw error;
 
-  const { data: publicData } = supabaseClient.storage
-    .from("portfolio-media")
-    .getPublicUrl(photoPath);
-
-  p.photo = publicData.publicUrl;
-} catch (error) {
-  console.error("Photo upload failed:", error);
-  toast("Photo upload failed. Check the console.");
-  return;
-}
-
-
-     
-try {
-  const { error } = await supabaseClient
-    .from("portfolio_profile")
-    .update({
-      name: state.profile.name,
-      title: state.profile.title,
-      bio: state.profile.bio,
-      email: state.profile.email,
-      instagram: state.profile.instagram,
-      youtube: state.profile.youtube,
-      linkedin: state.profile.linkedin,
-      behance: state.profile.behance,
-      whatsapp: state.profile.whatsapp,
-      photo_url: state.profile.photo || ""
-    })
-    .eq("id", 1);
-
-  if (error) throw error;
-
-  saveState();
-  renderProfile();
-  toast("Profile saved successfully!");
-} catch (error) {
-  console.error("Profile save failed:", error);
-  toast("Cloud save failed. Check the console.");
-}
-
+        saveState();
+        renderProfile();
+        toast("Profile saved to the cloud.");
+      } catch (error) {
+        console.error("Profile save failed:", error);
+        toast("Cloud save failed. Check the Console and Supabase table policies.");
+      }
     });
 
     $("#projectForm").addEventListener("submit", async event => {
@@ -1368,11 +1381,12 @@ try {
       window.location.href = `mailto:${p.email}?subject=${subject}&body=${body}`;
     });
 
-    // Initialize the website.
-   // Initialize the website.
-loadState();
-loadProfileFromSupabase();
-loadProjectsFromSupabase();
+    // Initialize from the local cache first, then refresh profile and projects from Supabase.
+    loadState();
+    renderProfile();
+    renderProjects();
+    loadProfileFromSupabase();
+    loadProjectsFromSupabase();
   </script>
 </body>
 </html>
