@@ -779,6 +779,37 @@ const DB = "vamshiEditorPortfolio_v2";
       }
     }
 
+async function loadProfileFromSupabase() {
+  const { data, error } = await supabaseClient
+    .from("portfolio_profile")
+    .select("*")
+    .eq("id", 1)
+    .single();
+
+  if (error) {
+    console.error("Could not load profile:", error.message);
+    return;
+  }
+
+  if (data) {
+    state.profile = {
+      ...state.profile,
+      name: data.name || state.profile.name,
+      title: data.title || state.profile.title,
+      bio: data.bio || state.profile.bio,
+      email: data.email || state.profile.email,
+      instagram: data.instagram || state.profile.instagram,
+      youtube: data.youtube || state.profile.youtube,
+      linkedin: data.linkedin || state.profile.linkedin,
+      behance: data.behance || state.profile.behance,
+      whatsapp: data.whatsapp || state.profile.whatsapp,
+      photo: data.photo || state.profile.photo
+    };
+
+    renderProfile();
+  }
+}
+
 async function loadProjectsFromSupabase() {
   const { data, error } = await supabaseClient
     .from("portfolio_projects")
@@ -1299,8 +1330,9 @@ $("#cancelAdminLogin").addEventListener("click", () => {
     });
 
     // Initialize the website.
-   loadState();
-renderProfile();
+   // Initialize the website.
+loadState();
+loadProfileFromSupabase();
 loadProjectsFromSupabase();
   </script>
 </body>
