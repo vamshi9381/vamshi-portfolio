@@ -215,8 +215,11 @@
       place-items: center;
       overflow: hidden;
       background: linear-gradient(135deg, #282a30, #101013 60%, #50281e);
+      cursor: pointer;
     }
 
+    .thumb:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+    .thumb:hover img, .thumb:hover video { transform: scale(1.02); transition: transform .2s ease; }
     .thumb img, .thumb video { width: 100%; height: 100%; object-fit: cover; }
 
     .playmini {
@@ -345,6 +348,10 @@
     .field { display: grid; gap: 6px; margin-bottom: 13px; }
     .field label { font-size: .83rem; color: #c8c8cf; }
     .hidden { display: none !important; }
+    .project-admin-actions { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+    .project-admin-actions .btn { padding:6px 10px; font-size:.78rem; }
+    .admin-project-row { padding:14px 0; border-bottom:1px solid var(--line); }
+    .admin-project-row:last-child { border-bottom:0; }
 
     .toast {
       position: fixed;
@@ -832,7 +839,7 @@ async function loadProjectsFromSupabase() {
     const { data, error } = await supabaseClient
       .from("portfolio_projects")
       .select("*")
-      .order("created_at", { ascending: false });
+      .order("sort_order", { ascending: true }).order("created_at", { ascending: false });
 
     if (error) throw error;
 
@@ -851,7 +858,8 @@ async function loadProjectsFromSupabase() {
       description: project.description || "",
       video: "",
       videoUrl: project.video_url || project.videoUrl || project.video || project.video_link || "",
-      thumb: project.thumbnail_url || project.thumbnail || project.thumb_url || project.thumbnailUrl || ""
+      thumb: project.thumbnail_url || project.thumbnail || project.thumb_url || project.thumbnailUrl || "",
+      sortOrder: Number.isFinite(Number(project.sort_order)) ? Number(project.sort_order) : 0
     }));
 
     const featuredProject = data.find(project => project.featured);
@@ -972,13 +980,12 @@ $("#profilebox").innerHTML = p.photo
       $("#projects").innerHTML = projects.length
         ? projects.map(project => `
           <article class="project">
-            <div class="thumb">
+            <div class="thumb" role="button" tabindex="0" data-play="${escapeHTML(project.id)}" aria-label="Play ${escapeHTML(project.title)}">
               ${project.thumb
                 ? `<img src="${project.thumb}" alt="${escapeHTML(project.title)} thumbnail">`
                 : project.video
                   ? `<video src="${project.video}" muted playsinline preload="metadata"></video>`
                   : `<div class="eyebrow">${escapeHTML(project.category)}</div>`}
-              <button class="playmini" type="button" data-play="${escapeHTML(project.id)}" aria-label="Play project">▶</button>
             </div>
             <div class="projectbody">
               <h3>${escapeHTML(project.title)}</h3>
@@ -992,13 +999,24 @@ $("#profilebox").innerHTML = p.photo
         : `<div class="empty"><strong>No projects yet.</strong><br>Add your first video using the Manage button.</div>`;
 
       $("#adminProjects").innerHTML = state.projects.length
-        ? state.projects.map(project => `
-          <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid var(--line)">
-            <div>
-              <strong>${escapeHTML(project.title)}</strong>
-              <div class="note">${escapeHTML(project.category)}${project.id === state.reelId ? " · Featured showreel" : ""}</div>
+        ? state.projects.map((project, index) => `
+          <div class="admin-project-row">
+            <div style="display:flex;align-items:center;gap:12px">
+              ${project.thumb ? `<img src="${escapeHTML(project.thumb)}" alt="" style="width:76px;height:52px;object-fit:cover;border-radius:4px">` : `<div style="width:76px;height:52px;background:#25252a;border-radius:4px;display:grid;place-items:center">▶</div>`}
+              <div style="min-width:0;flex:1">
+                <strong>${escapeHTML(project.title)}</strong>
+                <div class="note">${escapeHTML(project.category)}${project.id === state.reelId ? " · Featured showreel" : ""}</div>
+                <div class="note">Position ${index + 1} of ${state.projects.length}</div>
+              </div>
             </div>
-            <button class="btn" type="button" data-delete="${escapeHTML(project.id)}">Delete</button>
+            <div class="project-admin-actions">
+              <button class="btn" type="button" data-edit="${escapeHTML(project.id)}">Edit details</button>
+              <button class="btn" type="button" data-change-thumb="${escapeHTML(project.id)}">Change thumbnail</button>
+              <button class="btn" type="button" data-move-up="${escapeHTML(project.id)}" ${index === 0 ? "disabled" : ""}>Move up ↑</button>
+              <button class="btn" type="button" data-move-down="${escapeHTML(project.id)}" ${index === state.projects.length - 1 ? "disabled" : ""}>Move down ↓</button>
+              <button class="btn" type="button" data-delete="${escapeHTML(project.id)}">Delete</button>
+            </div>
+            <input class="hidden" type="file" accept="image/*" data-thumbnail-input="${escapeHTML(project.id)}">
           </div>`).join("")
         : `<p class="note">No projects added yet.</p>`;
 
@@ -1239,7 +1257,8 @@ $("#cancelAdminLogin").addEventListener("click", () => {
           description: form.elements.description.value.trim(),
           video_url: videoUrl,
           thumbnail_url: thumbnailUrl,
-          featured
+          featured,
+          sort_order: state.projects.length
         };
 
         const { data: savedProject, error: insertError } = await supabaseClient
@@ -1264,7 +1283,8 @@ $("#cancelAdminLogin").addEventListener("click", () => {
           description: savedProject.description || "",
           video: "",
           videoUrl: savedProject.video_url || "",
-          thumb: savedProject.thumbnail_url || ""
+          thumb: savedProject.thumbnail_url || "",
+          sortOrder: Number(savedProject.sort_order ?? state.projects.length)
         };
         state.projects = [project, ...state.projects.filter(item => item.id !== project.id)];
         if (featured) state.reelId = project.id;
@@ -1283,6 +1303,14 @@ $("#cancelAdminLogin").addEventListener("click", () => {
       }
     });
 
+    document.addEventListener("keydown", event => {
+      const thumbnail = event.target.closest(".thumb[data-play]");
+      if (thumbnail && (event.key === "Enter" || event.key === " ")) {
+        event.preventDefault();
+        thumbnail.click();
+      }
+    });
+
     document.addEventListener("click", async event => {
       const filter = event.target.closest("[data-filter]");
 
@@ -1291,6 +1319,84 @@ $("#cancelAdminLogin").addEventListener("click", () => {
           button.classList.toggle("active", button === filter);
         });
         renderProjects();
+        return;
+      }
+
+      const editButton = event.target.closest("[data-edit]");
+      if (editButton) {
+        const project = state.projects.find(item => item.id === editButton.dataset.edit);
+        if (!project) return;
+        const title = prompt("Project title:", project.title);
+        if (title === null) return;
+        const description = prompt("Description:", project.description || "");
+        if (description === null) return;
+        const category = prompt("Category (Reels, YouTube, Cinematic, Commercial):", project.category || "Reels");
+        if (category === null) return;
+        const videoUrl = prompt("Video URL (leave unchanged by pressing Cancel; enter blank to clear):", project.videoUrl || "");
+        // Cancel on video URL keeps the current URL; a blank value clears it.
+        const updates = {
+          title: title.trim() || project.title,
+          description: description.trim(),
+          category: ["Reels", "YouTube", "Cinematic", "Commercial"].includes(category.trim()) ? category.trim() : project.category
+        };
+        if (videoUrl !== null) updates.video_url = videoUrl.trim();
+        const { data: sessionData } = await supabaseClient.auth.getSession();
+        const adminId = "5df0167f-a55c-480b-bc03-8a06308247ca";
+        if (!sessionData.session || sessionData.session.user.id !== adminId) {
+          toast("Please sign in with your admin account first.");
+          return;
+        }
+        const { data: updatedRow, error } = await supabaseClient
+          .from("portfolio_projects").update(updates).eq("id", project.id).select("*").single();
+        if (error) {
+          console.error("Project update failed:", error);
+          toast("Could not update project. Check Supabase policies and table columns.");
+          return;
+        }
+        project.title = updatedRow.title || updates.title;
+        project.description = updatedRow.description || "";
+        project.category = updatedRow.category || updates.category;
+        if (Object.prototype.hasOwnProperty.call(updates, "video_url")) project.videoUrl = updatedRow.video_url || "";
+        renderProjects();
+        toast("Project details updated.");
+        return;
+      }
+
+      const changeThumbButton = event.target.closest("[data-change-thumb]");
+      if (changeThumbButton) {
+        const row = changeThumbButton.closest(".admin-project-row");
+        row?.querySelector("[data-thumbnail-input]")?.click();
+        return;
+      }
+
+      const moveUpButton = event.target.closest("[data-move-up]");
+      const moveDownButton = event.target.closest("[data-move-down]");
+      if (moveUpButton || moveDownButton) {
+        const projectId = (moveUpButton || moveDownButton).dataset[moveUpButton ? "moveUp" : "moveDown"];
+        const index = state.projects.findIndex(item => item.id === projectId);
+        const targetIndex = moveUpButton ? index - 1 : index + 1;
+        if (index < 0 || targetIndex < 0 || targetIndex >= state.projects.length) return;
+        const { data: sessionData } = await supabaseClient.auth.getSession();
+        const adminId = "5df0167f-a55c-480b-bc03-8a06308247ca";
+        if (!sessionData.session || sessionData.session.user.id !== adminId) {
+          toast("Please sign in with your admin account first.");
+          return;
+        }
+        const reordered = [...state.projects];
+        [reordered[index], reordered[targetIndex]] = [reordered[targetIndex], reordered[index]];
+        const updates = reordered.map((item, order) =>
+          supabaseClient.from("portfolio_projects").update({ sort_order: order }).eq("id", item.id)
+        );
+        const results = await Promise.all(updates);
+        const failed = results.find(result => result.error);
+        if (failed) {
+          console.error("Project reorder failed:", failed.error);
+          toast("Reordering failed. Add the sort_order column in Supabase first.");
+          return;
+        }
+        state.projects = reordered.map((item, order) => ({ ...item, sortOrder: order }));
+        renderProjects();
+        toast("Video order saved.");
         return;
       }
 
@@ -1355,6 +1461,45 @@ $("#cancelAdminLogin").addEventListener("click", () => {
             toast("Allow pop-ups to play the video in a new tab.");
           }
         }
+      }
+    });
+
+    document.addEventListener("change", async event => {
+      const thumbInput = event.target.closest("[data-thumbnail-input]");
+      if (!thumbInput || !thumbInput.files || !thumbInput.files[0]) return;
+      const file = thumbInput.files[0];
+      const project = state.projects.find(item => item.id === thumbInput.dataset.thumbnailInput);
+      if (!project) return;
+      if (!file.type.startsWith("image/") || file.size > 2 * 1024 * 1024) {
+        toast("Choose an image smaller than 2 MB.");
+        thumbInput.value = "";
+        return;
+      }
+      const { data: sessionData } = await supabaseClient.auth.getSession();
+      const adminId = "5df0167f-a55c-480b-bc03-8a06308247ca";
+      if (!sessionData.session || sessionData.session.user.id !== adminId) {
+        toast("Please sign in with your admin account first.");
+        thumbInput.value = "";
+        return;
+      }
+      try {
+        const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+        const thumbPath = `thumbnails/${crypto.randomUUID()}-${safeName}`;
+        const { error: uploadError } = await supabaseClient.storage.from("portfolio-media")
+          .upload(thumbPath, file, { upsert: false, contentType: file.type });
+        if (uploadError) throw uploadError;
+        const { data: publicThumb } = supabaseClient.storage.from("portfolio-media").getPublicUrl(thumbPath);
+        const { error: updateError } = await supabaseClient.from("portfolio_projects")
+          .update({ thumbnail_url: publicThumb.publicUrl }).eq("id", project.id);
+        if (updateError) throw updateError;
+        project.thumb = publicThumb.publicUrl;
+        renderProjects();
+        toast("Thumbnail changed. Video and details were kept.");
+      } catch (error) {
+        console.error("Thumbnail update failed:", error);
+        toast("Thumbnail update failed. Check Supabase Storage and table policies.");
+      } finally {
+        thumbInput.value = "";
       }
     });
 
