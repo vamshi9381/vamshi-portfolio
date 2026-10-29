@@ -123,6 +123,8 @@
 
     .heroVisual {
       min-height: 430px;
+      cursor: pointer;
+      transition: border-color .2s ease, transform .2s ease;
       position: relative;
       overflow: hidden;
       border: 1px solid #333238;
@@ -131,6 +133,13 @@
         radial-gradient(ellipse at 70% 25%, #ff602e66, transparent 35%),
         linear-gradient(140deg, #34353a, #101013 60%, #3c2019);
     }
+
+    .heroVisual:hover, .heroVisual:focus-visible {
+      border-color: var(--accent);
+      outline: none;
+    }
+
+    .heroVisual:focus-visible { box-shadow: 0 0 0 3px #ff602e55; }
 
     .filmshape {
       position: absolute;
@@ -420,7 +429,7 @@
         <div class="note">EDITING · STORYTELLING · COLOR · SOUND</div>
       </div>
 
-      <div class="heroVisual">
+      <div class="heroVisual" id="heroShowreel" role="button" tabindex="0" aria-label="Play featured showreel">
         <div class="filmshape"></div>
         <div class="play">▶</div>
         <div class="visualcaption">
@@ -929,8 +938,30 @@ $("#profilebox").innerHTML = p.photo
   : `<div class="profileinitial">${escapeHTML(initials(name))}</div>`;
     }
 
+    function getGoogleDriveFileId(url) {
+      try {
+        const parsed = new URL(url);
+        if (!/drive\.google\.com$/.test(parsed.hostname)) return "";
+        const pathMatch = parsed.pathname.match(/\/file\/d\/([^/]+)/);
+        if (pathMatch) return pathMatch[1];
+        return parsed.searchParams.get("id") || "";
+      } catch (_) {
+        return "";
+      }
+    }
+
     function renderReel() {
       const project = state.projects.find(item => item.id === state.reelId);
+      const heroShowreel = $("#heroShowreel");
+      if (heroShowreel) {
+        if (project) {
+          heroShowreel.dataset.play = project.id;
+          heroShowreel.setAttribute("aria-label", `Play featured showreel: ${project.title}`);
+        } else {
+          delete heroShowreel.dataset.play;
+          heroShowreel.setAttribute("aria-label", "No featured showreel selected. Add a project and feature it as showreel.");
+        }
+      }
 
       if (!project) {
         $("#reelBox").innerHTML = `
@@ -948,7 +979,16 @@ $("#profilebox").innerHTML = p.photo
       const src = project.video || project.videoUrl;
       if (!src) return;
 
-      if (/youtube\.com|youtu\.be|vimeo\.com/.test(src)) {
+      if (/drive\.google\.com/.test(src)) {
+        const driveId = getGoogleDriveFileId(src);
+        if (!driveId) {
+          toast("This Google Drive link is not recognized. Use a Drive file link like /file/d/FILE_ID/view.");
+          return;
+        }
+        const embed = `https://drive.google.com/file/d/${encodeURIComponent(driveId)}/preview`;
+        $("#reelBox").innerHTML =
+          `<iframe title="${escapeHTML(project.title)}" src="${embed}" style="width:100%;aspect-ratio:16/9;border:0" allow="autoplay; fullscreen" allowfullscreen loading="lazy"></iframe>`;
+      } else if (/youtube\.com|youtu\.be|vimeo\.com/.test(src)) {
         let embed = src;
 
         if (src.includes("youtu.be/")) {
@@ -963,7 +1003,7 @@ $("#profilebox").innerHTML = p.photo
         }
 
         $("#reelBox").innerHTML =
-          `<iframe title="${escapeHTML(project.title)}" src="${escapeHTML(embed)}" style="width:100%;aspect-ratio:16/9" allowfullscreen></iframe>`;
+          `<iframe title="${escapeHTML(project.title)}" src="${escapeHTML(embed)}" style="width:100%;aspect-ratio:16/9;border:0" allow="autoplay; fullscreen" allowfullscreen></iframe>`;
       } else {
         $("#reelBox").innerHTML =
           `<video controls playsinline preload="metadata" src="${escapeHTML(src)}" style="width:100%;max-height:620px"></video>`;
@@ -1304,10 +1344,10 @@ $("#cancelAdminLogin").addEventListener("click", () => {
     });
 
     document.addEventListener("keydown", event => {
-      const thumbnail = event.target.closest(".thumb[data-play]");
-      if (thumbnail && (event.key === "Enter" || event.key === " ")) {
+      const playable = event.target.closest(".thumb[data-play], #heroShowreel[data-play]");
+      if (playable && (event.key === "Enter" || event.key === " ")) {
         event.preventDefault();
-        thumbnail.click();
+        playable.click();
       }
     });
 
@@ -1444,7 +1484,14 @@ $("#cancelAdminLogin").addEventListener("click", () => {
           return;
         }
 
-        if (/youtube\.com|youtu\.be|vimeo\.com/.test(src)) {
+        if (/drive\.google\.com/.test(src)) {
+          const driveId = getGoogleDriveFileId(src);
+          if (!driveId) {
+            toast("This Google Drive link is not recognized. Paste the full Drive file-sharing link.");
+            return;
+          }
+          window.open(`https://drive.google.com/file/d/${encodeURIComponent(driveId)}/preview`, "_blank", "noopener,noreferrer");
+        } else if (/youtube\.com|youtu\.be|vimeo\.com/.test(src)) {
           window.open(src, "_blank", "noopener,noreferrer");
         } else {
           const popup = window.open("", "_blank");
@@ -1454,6 +1501,7 @@ $("#cancelAdminLogin").addEventListener("click", () => {
             video.src = src;
             video.controls = true;
             video.autoplay = true;
+            video.playsInline = true;
             video.style.cssText = "width:100%;max-height:95vh;background:#000";
             popup.document.body.style.background = "#000";
             popup.document.body.appendChild(video);
